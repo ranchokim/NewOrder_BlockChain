@@ -1,35 +1,16 @@
 /*
  * NewOrder C HTTP node server — minimal HTTP/1.0 server implementing all
- * Explorer API routes from api.py.
+ * Explorer API routes.
  *
  * Crypto note: signature verification is not performed by this C node.
  * All submitted transactions are accepted if balance constraints are met.
- * For production use, integrate a proper asymmetric signing library.
  */
-#ifdef _WIN32
-#  ifndef WIN32_LEAN_AND_MEAN
-#    define WIN32_LEAN_AND_MEAN
-#  endif
-#  include <winsock2.h>
-#  pragma comment(lib, "ws2_32.lib")
-   typedef SOCKET sock_t;
-#  define SOCK_INVALID INVALID_SOCKET
-#  define sock_close(s) closesocket(s)
-#  define sock_read(s,b,n) recv((s),(b),(int)(n),0)
-#  define sock_write(s,b,n) send((s),(char*)(b),(int)(n),0)
-static void net_init(void) { WSADATA w; WSAStartup(MAKEWORD(2,2),&w); }
-#else
-#  include <sys/socket.h>
-#  include <netinet/in.h>
-#  include <arpa/inet.h>
-#  include <unistd.h>
-   typedef int sock_t;
-#  define SOCK_INVALID -1
-#  define sock_close(s) close(s)
-#  define sock_read(s,b,n) read((s),(b),(n))
-#  define sock_write(s,b,n) write((s),(b),(n))
-static void net_init(void) {}
-#endif
+#define _POSIX_C_SOURCE 200809L
+
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
 
 #include "nohttp.h"
 #include "sha256.h"
@@ -37,6 +18,15 @@ static void net_init(void) {}
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+
+typedef int sock_t;
+#define SOCK_INVALID     -1
+#define sock_close(s)    close(s)
+#define sock_read(s,b,n) read((s),(b),(n))
+static void sock_write(sock_t s, const void *buf, size_t n) {
+    ssize_t r = write(s, buf, n); (void)r;
+}
+static void net_init(void) {}
 
 /* ── JSON builder ─────────────────────────────────────────────────────────── */
 
@@ -688,13 +678,15 @@ static int http_parse(sock_t s, HttpReq *req) {
     p = strchr(buf, '\r');
     if (!p) return 0;
     *p = '\0';
-    snprintf(line, sizeof(line), "%s", buf);
+    strncpy(line, buf, sizeof(line) - 1);
+    line[sizeof(line) - 1] = '\0';
     {
         char *sp1 = strchr(line, ' ');
         char *sp2 = sp1 ? strchr(sp1+1, ' ') : NULL;
         if (!sp1) return 0;
         *sp1 = '\0';
-        snprintf(req->method, sizeof(req->method), "%s", line);
+        strncpy(req->method, line, sizeof(req->method) - 1);
+        req->method[sizeof(req->method) - 1] = '\0';
         if (sp2) {
             *sp2 = '\0';
             /* split path and query */

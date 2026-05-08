@@ -3,6 +3,8 @@
  * Crypto note: block/tx IDs use SHA-256 (replacing the original FNV1a).
  * Signature verification is not implemented; the node trusts submitted keys.
  */
+#define _POSIX_C_SOURCE 200809L
+
 #include "neworder.h"
 #include "sha256.h"
 
@@ -974,7 +976,7 @@ int no_load_chain(NoLedger *l, const char *path) {
     fseek(f, 0, SEEK_END); fsize = ftell(f); fseek(f, 0, SEEK_SET);
     buf = (char *)malloc((size_t)fsize + 1);
     if (!buf) { fclose(f); return 0; }
-    fread(buf, 1, (size_t)fsize, f);
+    if (fread(buf, 1, (size_t)fsize, f) != (size_t)fsize) { free(buf); fclose(f); return 0; }
     fclose(f);
     buf[fsize] = '\0';
 
@@ -1126,7 +1128,7 @@ int no_load_payments(NoLedger *l, const char *path) {
     fseek(f, 0, SEEK_END); fsize = ftell(f); fseek(f, 0, SEEK_SET);
     buf = (char *)malloc((size_t)fsize + 1);
     if (!buf) { fclose(f); return 0; }
-    fread(buf, 1, (size_t)fsize, f);
+    if (fread(buf, 1, (size_t)fsize, f) != (size_t)fsize) { free(buf); fclose(f); return 0; }
     fclose(f);
     buf[fsize] = '\0';
     p = buf;

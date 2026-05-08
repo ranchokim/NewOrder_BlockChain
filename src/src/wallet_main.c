@@ -8,31 +8,13 @@
  *
  * Signatures are SHA-256(privkey_bytes || signing_payload).
  * The C node accepts transactions without verifying signatures.
- * For Python-compatible RSA wallets, use the Python wallet CLI.
  */
-#ifdef _WIN32
-#  ifndef WIN32_LEAN_AND_MEAN
-#    define WIN32_LEAN_AND_MEAN
-#  endif
-#  include <winsock2.h>
-#  pragma comment(lib,"ws2_32.lib")
-   typedef SOCKET sock_t;
-#  define sock_close(s) closesocket(s)
-#  define sock_send(s,b,n) send((s),(b),(int)(n),0)
-#  define sock_recv(s,b,n) recv((s),(b),(int)(n),0)
-static void net_init(void) { WSADATA w; WSAStartup(MAKEWORD(2,2),&w); }
-#else
-#  include <sys/socket.h>
-#  include <netinet/in.h>
-#  include <arpa/inet.h>
-#  include <unistd.h>
-   typedef int sock_t;
-#  define SOCK_INVALID -1
-#  define sock_close(s) close(s)
-#  define sock_send(s,b,n) write((s),(b),(n))
-#  define sock_recv(s,b,n) read((s),(b),(n))
-static void net_init(void) {}
-#endif
+#define _POSIX_C_SOURCE 200809L
+
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
 
 #include "sha256.h"
 #include <stdio.h>
@@ -40,24 +22,23 @@ static void net_init(void) {}
 #include <string.h>
 #include <time.h>
 
+typedef int sock_t;
+#define SOCK_INVALID     -1
+#define sock_close(s)    close(s)
+#define sock_recv(s,b,n) read((s),(b),(n))
+static void sock_send(sock_t s, const void *buf, size_t n) {
+    ssize_t r = write(s, buf, n); (void)r;
+}
+static void net_init(void) {}
+
 /* ── OS entropy ───────────────────────────────────────────────────────────── */
 
 static int os_random_bytes(unsigned char *buf, size_t n) {
-#ifdef _WIN32
-    HCRYPTPROV prov = 0;
-    if (!CryptAcquireContextA(&prov, NULL, NULL, PROV_RSA_FULL,
-                               CRYPT_VERIFYCONTEXT))
-        return 0;
-    CryptGenRandom(prov, (DWORD)n, buf);
-    CryptReleaseContext(prov, 0);
-    return 1;
-#else
     FILE *f = fopen("/dev/urandom", "rb");
     if (!f) return 0;
     size_t r = fread(buf, 1, n, f);
     fclose(f);
     return (r == n);
-#endif
 }
 
 /* ── key / address helpers ────────────────────────────────────────────────── */
@@ -105,6 +86,7 @@ static void wallet_keygen(char priv_out[140], char pub_out[76],
 }
 
 /* derive address from stored private key string "sha:{hex}" */
+__attribute__((unused))
 static void wallet_address_from_priv(const char *priv, char addr_out[48]) {
     const char *hex;
     unsigned char raw[32];
@@ -165,14 +147,14 @@ static int wallet_save(const char *path, const Wallet *w) {
 static int wallet_load(const char *path, Wallet *w) {
     FILE *f; char *buf; long sz;
     const char *p, *e;
-    auto_extract: ;
 
     f = fopen(path, "r");
     if (!f) { fprintf(stderr, "wallet not found: %s\n", path); return 0; }
     fseek(f, 0, SEEK_END); sz = ftell(f); fseek(f, 0, SEEK_SET);
     buf = (char *)malloc((size_t)sz + 1);
     if (!buf) { fclose(f); return 0; }
-    fread(buf, 1, (size_t)sz, f); fclose(f);
+    if (fread(buf, 1, (size_t)sz, f) != (size_t)sz) { free(buf); fclose(f); return 0; }
+    fclose(f);
     buf[sz] = '\0';
 
     /* extract fields */

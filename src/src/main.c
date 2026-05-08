@@ -2,6 +2,8 @@
  * NewOrder C — smoke test and benchmark binary.
  * Usage: neworder_c smoke | bench [N]
  */
+#define _POSIX_C_SOURCE 200809L
+
 #include "neworder.h"
 #include "sha256.h"
 
@@ -11,13 +13,9 @@
 #include <time.h>
 
 static double wall_seconds(void) {
-#ifdef _WIN32
-    return (double)clock() / (double)CLOCKS_PER_SEC;
-#else
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return (double)ts.tv_sec + (double)ts.tv_nsec * 1e-9;
-#endif
 }
 
 /* ── smoke test: full flow through every feature ─────────────────────────── */
@@ -28,7 +26,6 @@ static int smoke(void) {
     char token_id[NO_ID_LEN], contract_id[NO_ID_LEN];
     NoAiPayment payment, verified;
     char response[256];
-    const char addrs[2][NO_ADDRESS_LEN] = {"", ""};
 
     no_make_address("customer-seed",  customer);
     no_make_address("merchant-seed",  merchant);
@@ -173,7 +170,7 @@ static int smoke(void) {
     {
         char h[65];
         sha256_hex("abc", 3, h);
-        if (strcmp(h, "ba7816bf8f01cfea414140de5dae2ec73b00361bbef0469fa72a375cd37360d3") != 0)
+        if (strcmp(h, "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad") != 0)
             printf("  SHA-256 SELF-TEST FAILED!\n");
         else
             printf("  SHA-256 self-test OK\n");

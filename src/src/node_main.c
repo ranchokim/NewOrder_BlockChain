@@ -4,6 +4,8 @@
  *                      [--validator ADDR] [--validators A,B,C]
  *                      [--ai-merchant ADDR]
  */
+#define _POSIX_C_SOURCE 200809L
+
 #include "neworder.h"
 #include "nohttp.h"
 #include <stdio.h>
@@ -56,20 +58,12 @@ int main(int argc, char **argv) {
         copy = (char *)malloc(strlen(validators_str) + 1);
         if (!copy) { fprintf(stderr, "oom\n"); return 1; }
         strcpy(copy, validators_str);
-#ifdef _WIN32
-        tok = strtok_s(copy, ",", &ctx);
-#else
         tok = strtok_r(copy, ",", &ctx);
-#endif
         while (tok && count < 16) {
             while (*tok == ' ') tok++;
             snprintf(addrs[count], NO_ADDRESS_LEN, "%s", tok);
             count++;
-#ifdef _WIN32
-            tok = strtok_s(NULL, ",", &ctx);
-#else
             tok = strtok_r(NULL, ",", &ctx);
-#endif
         }
         free(copy);
         if (!no_set_validators(&ledger, (const char (*)[NO_ADDRESS_LEN])addrs, count)) {
