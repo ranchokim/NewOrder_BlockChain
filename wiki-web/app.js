@@ -2,17 +2,16 @@ const pages = {
   overview: {
     title: "개요",
     html: `
-      <p>NewOrder는 학습과 로컬 실험을 위한 표준 라이브러리 기반 블록체인입니다. 네이티브 코인은 <strong>NewOrder</strong>, 심볼은 <strong>NO</strong>입니다.</p>
+      <p>NewOrder는 학습과 로컬 실험을 위한 C 언어 기반 블록체인입니다. 네이티브 코인은 <strong>NewOrder</strong>, 심볼은 <strong>NO</strong>입니다.</p>
       <div class="grid">
         <div class="info"><strong>코인</strong>NewOrder · NO · 최대 공급량 21,000,000</div>
-        <div class="info"><strong>노드</strong>HTTP Explorer API와 TCP P2P 노드를 함께 실행합니다.</div>
+        <div class="info"><strong>노드</strong>HTTP Explorer API를 제공하는 단일 바이너리 노드입니다.</div>
         <div class="info"><strong>스마트컨트랙트</strong>counter, key_value 내장 컨트랙트를 온체인 트랜잭션으로 실행합니다.</div>
         <div class="info"><strong>토큰</strong>token_create, token_transfer 트랜잭션으로 사용자 토큰을 발행하고 전송합니다.</div>
       </div>
       <h2>구성 요소</h2>
       <ul>
         <li>네이티브 코인: 블록 보상, 잔액, 수수료를 처리합니다.</li>
-        <li>P2P 노드: TCP JSON-line 메시지로 블록과 트랜잭션을 전파합니다.</li>
         <li>지갑: 주소 생성, 송금, PoA 블록 생성 요청, 토큰 발행, 스마트컨트랙트 호출을 수행합니다.</li>
         <li>익스플로러 API: 체인, 블록, 트랜잭션, 주소, 토큰, 컨트랙트 상태를 조회합니다.</li>
       </ul>
@@ -30,21 +29,21 @@ const pages = {
   consensus: {
     title: "합의 알고리즘",
     html: `
-      <p>NewOrder의 합의 알고리즘은 라운드로빈 Proof of Authority입니다. 기존 Proof of Work처럼 해시 퍼즐을 풀지 않고, 사전에 등록된 validator가 정해진 순서대로 블록을 생성하고 개인키로 서명합니다.</p>
+      <p>NewOrder의 합의 알고리즘은 라운드로빈 Proof of Authority입니다. 기존 Proof of Work처럼 해시 퍼즐을 풀지 않고, 사전에 등록된 validator가 정해진 순서대로 블록을 생성합니다.</p>
       <h2>선택 이유</h2>
       <ul>
         <li>블록 생성에 반복 해싱이 필요 없습니다.</li>
         <li>에너지 비용이 거의 없습니다.</li>
         <li>3개 노드 같은 소규모 네트워크에서 지연 시간이 낮습니다.</li>
-        <li>validator 서명만 검증하면 되므로 블록 검증 비용이 작습니다.</li>
+        <li>validator 순서만 검증하면 되므로 블록 검증 비용이 작습니다.</li>
       </ul>
       <h2>블록 생성 절차</h2>
       <ol>
         <li>모든 노드는 동일한 validator 주소 목록을 설정합니다.</li>
         <li>다음 블록 높이에서 담당 validator를 계산합니다.</li>
         <li>담당 validator 노드는 메모리풀 트랜잭션과 보상 트랜잭션을 묶습니다.</li>
-        <li>블록 해시를 validator 개인키로 서명합니다.</li>
-        <li>피어 노드는 담당 순서, validator 공개키, 블록 서명을 검증한 뒤 블록을 추가합니다.</li>
+        <li>블록 해시를 SHA-256으로 계산합니다.</li>
+        <li>피어 노드는 담당 순서와 블록 해시를 검증한 뒤 블록을 추가합니다.</li>
       </ol>
       <h2>담당 validator 계산</h2>
       ${code('validator_index = (block_height - 1) % validator_count')}
@@ -53,8 +52,7 @@ const pages = {
         <li>피어 동기화 시 기존 체인보다 긴 체인만 후보가 됩니다.</li>
         <li>모든 블록의 <code>previous_hash</code>가 이전 블록 해시와 일치해야 합니다.</li>
         <li>각 블록의 validator가 해당 높이의 담당 validator여야 합니다.</li>
-        <li>validator 공개키가 validator 주소와 일치해야 합니다.</li>
-        <li>validator 서명이 유효해야 합니다.</li>
+        <li>coinbase 금액이 블록 보상 + 수수료를 초과하지 않아야 합니다.</li>
       </ul>
       <p class="note">현재 구현은 효율을 우선한 단순 PoA입니다. 실제 운영망에는 validator 선출, 키 교체, slashing, Byzantine fault tolerance가 추가로 필요합니다.</p>
     `,
@@ -62,23 +60,22 @@ const pages = {
   usage: {
     title: "사용법",
     html: `
+      <h2>빌드</h2>
+      ${code('cd src\nmake')}
       <h2>validator 지갑 생성</h2>
-      ${code(`python -m neworder.wallet create --wallet validator1.json
-python -m neworder.wallet create --wallet validator2.json
-python -m neworder.wallet create --wallet validator3.json`)}
+      ${code('./neworder_wallet create --wallet validator1.json\n./neworder_wallet create --wallet validator2.json\n./neworder_wallet create --wallet validator3.json')}
       <h2>validator 노드 실행</h2>
-      ${code('python -m neworder --host 127.0.0.1 --port 8080 --p2p-port 9333 --data-dir data/node1 --validator-wallet validator1.json --validators NO1...,NO2...,NO3...')}
+      ${code('./neworder_node --port 8080 --data-dir data/node1 --validator NO... --validators NO1...,NO2...,NO3...')}
       <h2>PoA 블록 생성</h2>
-      ${code('python -m neworder.wallet --wallet validator1.json mine')}
-      <p>명령 이름은 기존 호환성을 위해 <code>mine</code>으로 유지하지만, 실제 동작은 Proof of Authority 블록 생성입니다.</p>
+      ${code('./neworder_wallet mine --wallet validator1.json')}
+      <p>현재 높이의 담당 validator 노드만 다음 블록을 만들 수 있습니다.</p>
       <h2>잔액 조회</h2>
-      ${code('python -m neworder.wallet --wallet wallet1.json balance')}
+      ${code('./neworder_wallet balance --wallet wallet1.json')}
       <p>응답에는 네이티브 NO 잔액과 보유 토큰 잔액이 함께 표시됩니다.</p>
       <h2>NO 전송</h2>
-      ${code('python -m neworder.wallet --wallet wallet1.json send --to NO... --amount 10 --fee 0.01')}
-      <h2>두 번째 노드 연결</h2>
-      ${code(`python -m neworder --port 8081 --p2p-port 9334 --data-dir data/node2
-Invoke-RestMethod http://127.0.0.1:8081/peers -Method Post -ContentType "application/json" -Body '{"peer":"127.0.0.1:9333"}'`)}
+      ${code('./neworder_wallet send --wallet wallet1.json --to NO... --amount 10 --fee 0.01')}
+      <h2>3개 노드 연결</h2>
+      ${code('./neworder_node --port 8080 --data-dir data/node1 --validator NO1... --validators NO1...,NO2...,NO3...\n./neworder_node --port 8081 --data-dir data/node2 --validator NO2... --validators NO1...,NO2...,NO3...\n./neworder_node --port 8082 --data-dir data/node3 --validator NO3... --validators NO1...,NO2...,NO3...')}
     `,
   },
   contracts: {
@@ -98,13 +95,11 @@ Invoke-RestMethod http://127.0.0.1:8081/peers -Method Post -ContentType "applica
         <li><code>delete</code>: <code>{"key": "name"}</code> 값을 삭제합니다.</li>
       </ul>
       <h2>컨트랙트 배포</h2>
-      ${code(`python -m neworder.wallet --wallet wallet1.json contract-deploy --name VoteCounter --contract-type counter
-python -m neworder.wallet --wallet wallet1.json mine`)}
+      ${code('./neworder_wallet contract-deploy --wallet wallet1.json --name VoteCounter --type counter\n./neworder_wallet mine --wallet wallet1.json')}
       <h2>컨트랙트 호출</h2>
-      ${code(`python -m neworder.wallet --wallet wallet1.json contract-call --contract-id NOC... --method increment --args-json '{"amount":3}'
-python -m neworder.wallet --wallet wallet1.json mine`)}
+      ${code('./neworder_wallet contract-call --wallet wallet1.json --contract NOC... --method increment --amount 3\n./neworder_wallet mine --wallet wallet1.json')}
       <h2>상태 조회</h2>
-      ${code('Invoke-RestMethod http://127.0.0.1:8080/contracts/NOC...')}
+      ${code('curl http://127.0.0.1:8080/contracts/NOC...')}
     `,
   },
   tokens: {
@@ -112,14 +107,12 @@ python -m neworder.wallet --wallet wallet1.json mine`)}
     html: `
       <p>NewOrder는 네이티브 코인 NO 위에서 사용자 정의 토큰을 발행할 수 있습니다.</p>
       <h2>토큰 발행</h2>
-      ${code(`python -m neworder.wallet --wallet wallet1.json token-create --name "Example Token" --symbol EXT --supply 1000000 --decimals 2
-python -m neworder.wallet --wallet wallet1.json mine`)}
+      ${code('./neworder_wallet token-create --wallet wallet1.json --name "Example Token" --symbol EXT --supply 1000000\n./neworder_wallet mine --wallet wallet1.json')}
       <p>PoA 블록 생성 후 <code>GET /tokens</code>에서 <code>NOT...</code> 형식의 <code>token_id</code>를 확인합니다. 발행자는 초기 공급량 전체를 보유합니다.</p>
       <h2>토큰 전송</h2>
-      ${code(`python -m neworder.wallet --wallet wallet1.json token-send --token-id NOT... --to NO... --amount 100
-python -m neworder.wallet --wallet wallet1.json mine`)}
+      ${code('./neworder_wallet token-send --wallet wallet1.json --token NOT... --to NO... --amount 100\n./neworder_wallet mine --wallet wallet1.json')}
       <h2>토큰 잔액 조회</h2>
-      ${code('Invoke-RestMethod http://127.0.0.1:8080/tokens/NOT.../balances/NO...')}
+      ${code('curl http://127.0.0.1:8080/tokens/NOT.../balances/NO...')}
       <h2>검증 규칙</h2>
       <ul>
         <li>토큰 심볼은 1~12자의 영문/숫자여야 합니다.</li>
@@ -154,9 +147,15 @@ python -m neworder.wallet --wallet wallet1.json mine`)}
         <li><code>GET /contracts</code>: 배포된 컨트랙트 목록</li>
         <li><code>GET /contracts/{contract_id}</code>: 컨트랙트 메타데이터와 현재 상태</li>
         <li><code>GET /mine?address={NO...}</code>: 현재 담당 validator 노드가 PoA 블록을 생성하고 보상을 지정 주소로 지급</li>
-        <li><code>GET /peers</code>: 연결된 피어 목록</li>
-        <li><code>POST /transactions</code>: 서명된 트랜잭션 제출</li>
-        <li><code>POST /peers</code>: 피어 연결</li>
+        <li><code>POST /transactions</code>: 트랜잭션 제출</li>
+      </ul>
+      <h2>AI 결제</h2>
+      <ul>
+        <li><code>GET /ai/services</code>: 이용 가능한 AI 서비스 목록</li>
+        <li><code>GET /ai/payments/{payment_id}</code>: 결제 요청 조회</li>
+        <li><code>POST /ai/payments</code>: 결제 요청 생성</li>
+        <li><code>POST /ai/payments/{payment_id}/verify</code>: 결제 검증</li>
+        <li><code>POST /ai/payments/{payment_id}/consume</code>: 서비스 사용</li>
       </ul>
     `,
   },

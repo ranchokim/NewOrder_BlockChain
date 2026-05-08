@@ -22,24 +22,24 @@ NewOrder의 스마트컨트랙트는 보안상 임의 코드를 실행하지 않
 
 ## 컨트랙트 배포
 
-```powershell
-python -m neworder.wallet --wallet wallet1.json contract-deploy --name VoteCounter --contract-type counter
-python -m neworder.wallet --wallet wallet1.json mine
+```bash
+./neworder_wallet contract-deploy --wallet wallet1.json --name VoteCounter --type counter
+./neworder_wallet mine --wallet wallet1.json
 ```
 
 PoA 블록 생성 후 `GET /contracts`에서 `NOC...` 형식의 `contract_id`를 확인합니다.
 
 ## 컨트랙트 호출
 
-```powershell
-python -m neworder.wallet --wallet wallet1.json contract-call --contract-id NOC... --method increment --args-json '{"amount":3}'
-python -m neworder.wallet --wallet wallet1.json mine
+```bash
+./neworder_wallet contract-call --wallet wallet1.json --contract NOC... --method increment --amount 3
+./neworder_wallet mine --wallet wallet1.json
 ```
 
 ## 상태 조회
 
-```powershell
-Invoke-RestMethod http://127.0.0.1:8080/contracts/NOC...
+```bash
+curl http://127.0.0.1:8080/contracts/NOC...
 ```
 
 컨트랙트 상태는 체인의 deploy/call 트랜잭션을 순서대로 재생하여 계산됩니다.
