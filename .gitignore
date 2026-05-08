@@ -4,3 +4,5 @@ data/
 tmp_*/
 tmp_*.json
 wallet*.json
+c_neworder/neworder_c
+*.o

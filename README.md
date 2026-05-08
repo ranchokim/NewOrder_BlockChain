@@ -92,6 +92,35 @@ the receiver explicitly:
 python -m neworder --data-dir data/node1 --validator-wallet validator1.json --validators NO1...,NO2...,NO3... --ai-merchant-address NO...
 ```
 
+## C Ledger Port
+
+The performance-critical ledger and AI payment flow also have a C port in
+[`c_neworder`](c_neworder). It keeps indexed account balances instead of scanning
+the whole chain for every transaction, which removes the main Python benchmark
+bottleneck.
+
+Build on Windows PowerShell:
+
+```powershell
+cd c_neworder
+.\build.ps1
+.\neworder_c.exe smoke
+.\neworder_c.exe bench 100000
+```
+
+Build with Make on Unix-like systems:
+
+```bash
+cd c_neworder
+make
+./neworder_c smoke
+./neworder_c bench 100000
+```
+
+The C port currently covers the core ledger, block production, indexed balances,
+and AI payment request/verify/consume flow. The Python HTTP API, P2P node, and
+wallet remain as the higher-level prototype layer.
+
 ## Explorer API
 
 - `GET /stats`
