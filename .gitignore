@@ -4,5 +4,10 @@ data/
 tmp_*/
 tmp_*.json
 wallet*.json
-c_neworder/neworder_c
+src/neworder_c
+src/neworder_c.exe
+src/neworder_node
+src/neworder_node.exe
+src/neworder_wallet
+src/neworder_wallet.exe
 *.o

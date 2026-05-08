@@ -66,7 +66,7 @@ admin tooling, explorer, AI orchestration, and tests.
 The C ledger port was compiled and tested in WSL with:
 
 ```bash
-cd /mnt/c/AI_workspace/workspace_19/c_neworder
+cd /mnt/c/AI_workspace/workspace_19/src
 make clean
 make
 ./neworder_c smoke

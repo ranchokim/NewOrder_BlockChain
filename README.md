@@ -24,12 +24,12 @@ This is a local development chain, not production cryptocurrency software.
 Build all three C binaries first:
 
 ```powershell
-cd c_neworder
+cd src
 .\build.ps1          # Windows (gcc, clang, or MSVC)
 ```
 
 ```bash
-cd c_neworder
+cd src
 make                 # Linux / macOS
 ```
 
