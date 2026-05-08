@@ -10,9 +10,10 @@ It includes:
 - Mempool and validator rewards
 - Built-in smart contracts for counters and key-value state
 - Token issuance and token transfer transactions
+- AI service payment requests settled with NO coin transfers
 - JSON-line TCP P2P node gossip
 - HTTP explorer and node API
-- Wallet CLI for addresses, balances, transactions, token workflows, and validator block production
+- Wallet CLI for addresses, balances, transactions, AI payments, token workflows, and validator block production
 
 This is a local development chain, not production cryptocurrency software.
 
@@ -63,9 +64,32 @@ python -m neworder.wallet create --wallet wallet1.json
 python -m neworder.wallet --wallet wallet1.json address
 python -m neworder.wallet --wallet wallet1.json balance
 python -m neworder.wallet --wallet wallet1.json send --to NO... --amount 1 --fee 0.01 --memo "hello"
+python -m neworder.wallet ai-services
+python -m neworder.wallet --wallet wallet1.json ai-payment-create --service-id chat-basic --units 2
+python -m neworder.wallet --wallet wallet1.json ai-pay --payment-id AIP...
+python -m neworder.wallet --wallet wallet1.json mine
+python -m neworder.wallet ai-verify --payment-id AIP...
+python -m neworder.wallet ai-consume --payment-id AIP... --prompt "hello"
 python -m neworder.wallet --wallet wallet1.json token-create --name "Example Token" --symbol EXT --supply 1000000
 python -m neworder.wallet --wallet wallet1.json contract-deploy --name Votes --contract-type counter
 python -m neworder.wallet --wallet wallet1.json mine
+```
+
+## AI Payment Flow
+
+The AI payment gateway uses normal NewOrder coin transfers as settlement. A node
+creates an AI payment request with a service, customer address, amount due,
+merchant address, and required memo. The customer pays by sending NO to the
+merchant address with that memo. After the payment transaction is included in a
+PoA block, `/ai/payments/{payment_id}/verify` marks the request as paid and
+`/ai/payments/{payment_id}/consume` spends one paid service unit.
+
+By default, the AI merchant address is the validator wallet address when the node
+has `--validator-wallet`; otherwise it falls back to a demo address. You can set
+the receiver explicitly:
+
+```powershell
+python -m neworder --data-dir data/node1 --validator-wallet validator1.json --validators NO1...,NO2...,NO3... --ai-merchant-address NO...
 ```
 
 ## Explorer API
@@ -81,9 +105,14 @@ python -m neworder.wallet --wallet wallet1.json mine
 - `GET /tokens/{token_id}/balances/{address}`
 - `GET /contracts`
 - `GET /contracts/{contract_id}`
+- `GET /ai/services`
+- `GET /ai/payments/{payment_id}`
 - `GET /mine?address={NO...}`
 - `GET /peers`
 - `POST /transactions`
+- `POST /ai/payments`
+- `POST /ai/payments/{payment_id}/verify`
+- `POST /ai/payments/{payment_id}/consume`
 - `POST /peers` with `{"peer":"127.0.0.1:9334"}`
 
 ## Wiki

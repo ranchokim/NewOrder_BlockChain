@@ -10,7 +10,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
+from .ai_payment import AIPaymentGateway
 from .blockchain import Blockchain
+from .crypto import address_from_public, public_key_from_private
 from .models import Transaction
 from .p2p import P2PNode
 
@@ -18,6 +20,7 @@ from .p2p import P2PNode
 class NewOrderAPI(BaseHTTPRequestHandler):
     blockchain: Blockchain
     node: P2PNode
+    ai_gateway: AIPaymentGateway
     validator_private_key: str | None = None
 
     def log_message(self, format: str, *args: Any) -> None:
@@ -62,6 +65,16 @@ class NewOrderAPI(BaseHTTPRequestHandler):
             return
         if parsed.path == "/contracts":
             self.send_json(HTTPStatus.OK, list(self.blockchain.contracts().values()))
+            return
+        if parsed.path == "/ai/services":
+            self.send_json(HTTPStatus.OK, self.ai_gateway.list_services())
+            return
+        if len(parts) == 3 and parts[0] == "ai" and parts[1] == "payments":
+            payment = self.ai_gateway.get_payment(parts[2])
+            if payment is None:
+                self.send_json(HTTPStatus.NOT_FOUND, {"error": "payment not found"})
+            else:
+                self.send_json(HTTPStatus.OK, payment.to_dict())
             return
         if len(parts) == 2 and parts[0] == "blocks":
             block = self._block(parts[1])
@@ -150,6 +163,39 @@ class NewOrderAPI(BaseHTTPRequestHandler):
             else:
                 self.send_json(HTTPStatus.BAD_REQUEST, {"error": result})
             return
+        if parsed.path == "/ai/payments":
+            payload = self.read_json()
+            try:
+                payment = self.ai_gateway.create_payment(
+                    service_id=str(payload.get("service_id", "")),
+                    customer_address=str(payload.get("customer_address", "")),
+                    units=int(payload.get("units", 1)),
+                )
+                self.send_json(HTTPStatus.CREATED, payment.to_dict())
+            except (TypeError, ValueError) as exc:
+                self.send_json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
+            return
+        if parsed.path.startswith("/ai/payments/"):
+            parts = [part for part in parsed.path.split("/") if part]
+            if len(parts) == 3 and parts[2] == "verify":
+                self.send_json(HTTPStatus.NOT_FOUND, {"error": "payment id is required"})
+                return
+            if len(parts) == 4 and parts[0] == "ai" and parts[1] == "payments":
+                payment_id = parts[2]
+                try:
+                    if parts[3] == "verify":
+                        payment = self.ai_gateway.verify_payment(payment_id)
+                        self.send_json(HTTPStatus.OK, payment.to_dict())
+                        return
+                    if parts[3] == "consume":
+                        payload = self.read_json()
+                        result = self.ai_gateway.consume(payment_id, prompt=str(payload.get("prompt", "")))
+                        self.send_json(HTTPStatus.OK, result)
+                        return
+                except ValueError as exc:
+                    status = HTTPStatus.NOT_FOUND if str(exc) == "payment not found" else HTTPStatus.BAD_REQUEST
+                    self.send_json(status, {"error": str(exc)})
+                    return
         if parsed.path == "/peers":
             payload = self.read_json()
             peer = payload.get("peer")
@@ -188,9 +234,14 @@ ROUTES = [
     "GET /tokens/{token_id}/balances/{address}",
     "GET /contracts",
     "GET /contracts/{contract_id}",
+    "GET /ai/services",
+    "GET /ai/payments/{payment_id}",
     "GET /mine?address={NO...}",
     "GET /peers",
     "POST /transactions",
+    "POST /ai/payments",
+    "POST /ai/payments/{payment_id}/verify",
+    "POST /ai/payments/{payment_id}/consume",
     "POST /peers",
 ]
 
@@ -207,16 +258,20 @@ def build_server_with_consensus(
     p2p_port: int,
     validators: list[str] | None = None,
     validator_private_key: str | None = None,
+    ai_merchant_address: str | None = None,
 ) -> ThreadingHTTPServer:
     blockchain = Blockchain(data_dir, validators=validators)
     node = P2PNode(blockchain, p2p_host, p2p_port)
     node.start()
+    merchant_address = ai_merchant_address or validator_address_from_private_key(validator_private_key) or "NO_AI_MERCHANT"
+    ai_gateway = AIPaymentGateway(blockchain, merchant_address, data_dir)
 
     class Handler(NewOrderAPI):
         pass
 
     Handler.blockchain = blockchain
     Handler.node = node
+    Handler.ai_gateway = ai_gateway
     Handler.validator_private_key = validator_private_key
     return ThreadingHTTPServer((host, port), Handler)
 
@@ -228,6 +283,12 @@ def load_private_key(wallet_path: str | None) -> str | None:
         return json.load(fh)["private_key"]
 
 
+def validator_address_from_private_key(private_key: str | None) -> str | None:
+    if not private_key:
+        return None
+    return address_from_public(public_key_from_private(private_key))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run a NewOrder node with explorer API.")
     parser.add_argument("--host", default="127.0.0.1")
@@ -237,6 +298,7 @@ def main() -> None:
     parser.add_argument("--data-dir", default="data")
     parser.add_argument("--validator-wallet", help="Wallet JSON used to sign PoA blocks.")
     parser.add_argument("--validators", default="", help="Comma-separated validator NO addresses in round-robin order.")
+    parser.add_argument("--ai-merchant-address", help="NO address that receives AI service payments.")
     args = parser.parse_args()
 
     validators = [item.strip() for item in args.validators.split(",") if item.strip()]
@@ -249,6 +311,7 @@ def main() -> None:
         args.p2p_port,
         validators=validators,
         validator_private_key=validator_private_key,
+        ai_merchant_address=args.ai_merchant_address,
     )
     print(f"NewOrder API running at http://{args.host}:{args.port}")
     print(f"NewOrder P2P node listening at {args.p2p_host}:{args.p2p_port}")

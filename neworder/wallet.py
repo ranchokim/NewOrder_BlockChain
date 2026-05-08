@@ -86,6 +86,44 @@ def send_transaction(args: argparse.Namespace) -> None:
     print(json.dumps(api_post(args.node, "/transactions", tx.to_dict()), indent=2))
 
 
+def ai_services(args: argparse.Namespace) -> None:
+    print(json.dumps(api_get(args.node, "/ai/services"), indent=2))
+
+
+def ai_create_payment(args: argparse.Namespace) -> None:
+    wallet = load_wallet(args.wallet)
+    payload = {
+        "service_id": args.service_id,
+        "customer_address": wallet["address"],
+        "units": args.units,
+    }
+    print(json.dumps(api_post(args.node, "/ai/payments", payload), indent=2))
+
+
+def ai_pay(args: argparse.Namespace) -> None:
+    wallet = load_wallet(args.wallet)
+    payment = api_get(args.node, f"/ai/payments/{args.payment_id}")
+    if not isinstance(payment, dict):
+        raise SystemExit("unexpected payment response")
+    tx = Transaction.signed(
+        private_key=wallet["private_key"],
+        recipient=str(payment["merchant_address"]),
+        amount=float(payment["amount_due"]),
+        fee=args.fee,
+        memo=str(payment["memo"]),
+    )
+    print(json.dumps(api_post(args.node, "/transactions", tx.to_dict()), indent=2))
+
+
+def ai_verify(args: argparse.Namespace) -> None:
+    print(json.dumps(api_post(args.node, f"/ai/payments/{args.payment_id}/verify", {}), indent=2))
+
+
+def ai_consume(args: argparse.Namespace) -> None:
+    payload = {"prompt": args.prompt}
+    print(json.dumps(api_post(args.node, f"/ai/payments/{args.payment_id}/consume", payload), indent=2))
+
+
 def create_token(args: argparse.Namespace) -> None:
     wallet = load_wallet(args.wallet)
     tx = Transaction.signed(
@@ -183,6 +221,28 @@ def main() -> None:
     send.add_argument("--fee", type=float, default=0.0)
     send.add_argument("--memo", default="")
     send.set_defaults(func=send_transaction)
+
+    ai_list = subparsers.add_parser("ai-services", parents=[node_parent], help="List payable AI services.")
+    ai_list.set_defaults(func=ai_services)
+
+    ai_create = subparsers.add_parser("ai-payment-create", parents=[wallet_parent, node_parent], help="Create an AI payment request.")
+    ai_create.add_argument("--service-id", required=True)
+    ai_create.add_argument("--units", type=int, default=1)
+    ai_create.set_defaults(func=ai_create_payment)
+
+    ai_payment = subparsers.add_parser("ai-pay", parents=[wallet_parent, node_parent], help="Pay an AI payment request with NO.")
+    ai_payment.add_argument("--payment-id", required=True)
+    ai_payment.add_argument("--fee", type=float, default=0.0)
+    ai_payment.set_defaults(func=ai_pay)
+
+    ai_payment_verify = subparsers.add_parser("ai-verify", parents=[node_parent], help="Verify an AI payment on-chain.")
+    ai_payment_verify.add_argument("--payment-id", required=True)
+    ai_payment_verify.set_defaults(func=ai_verify)
+
+    ai_payment_consume = subparsers.add_parser("ai-consume", parents=[node_parent], help="Use a paid AI service unit.")
+    ai_payment_consume.add_argument("--payment-id", required=True)
+    ai_payment_consume.add_argument("--prompt", default="")
+    ai_payment_consume.set_defaults(func=ai_consume)
 
     token_create = subparsers.add_parser("token-create", parents=[wallet_parent, node_parent], help="Issue a NewOrder token.")
     token_create.add_argument("--name", required=True)
