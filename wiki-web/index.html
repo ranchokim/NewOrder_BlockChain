@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>NewOrder Wiki</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar" aria-label="Wiki navigation">
+        <div class="brand">
+          <div class="mark">NO</div>
+          <div>
+            <div class="name">NewOrder</div>
+            <div class="sub">Blockchain Wiki</div>
+          </div>
+        </div>
+
+        <label class="search">
+          <span>검색</span>
+          <input id="search" type="search" placeholder="토큰, 합의, API">
+        </label>
+
+        <nav class="nav" id="nav">
+          <button class="active" data-page="overview">개요</button>
+          <button data-page="consensus">합의 알고리즘</button>
+          <button data-page="usage">사용법</button>
+          <button data-page="contracts">스마트컨트랙트</button>
+          <button data-page="tokens">토큰 발행</button>
+          <button data-page="api">Explorer API</button>
+        </nav>
+      </aside>
+
+      <main class="content">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">NewOrder · NO</p>
+            <h1 id="page-title">개요</h1>
+          </div>
+          <div class="status">
+            <span>PoA</span>
+            <span>Smart Contracts</span>
+            <span>Tokens</span>
+          </div>
+        </header>
+
+        <section id="article" class="article" aria-live="polite"></section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

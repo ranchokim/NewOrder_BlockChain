@@ -1,0 +1,6 @@
+__pycache__/
+*.py[cod]
+data/
+tmp_*/
+tmp_*.json
+wallet*.json
