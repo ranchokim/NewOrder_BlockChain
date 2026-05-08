@@ -14,11 +14,15 @@ NewOrder는 블록, 트랜잭션, 지갑, P2P 노드, 익스플로러 API를 하
 
 ## 트랜잭션 유형
 
-- `transfer`: NO 네이티브 코인 전송
+- `transfer`: NO 네이티브 코인 전송 (AI 결제 정산에도 사용됩니다)
 - `token_create`: 사용자 정의 토큰 발행
 - `token_transfer`: 발행된 토큰 전송
 - `contract_deploy`: 내장 스마트컨트랙트 배포
 - `contract_call`: 배포된 스마트컨트랙트 호출
+
+AI 결제는 별도의 트랜잭션 유형이 없습니다. 결제 요청(AIPayment)은 노드가 오프체인으로
+관리하고, 실제 정산은 `AIPAY:{payment_id}` 메모가 포함된 `transfer` 트랜잭션으로
+이루어집니다. 노드는 해당 트랜잭션이 블록에 포함된 뒤 결제 상태를 `paid`로 갱신합니다.
 
 ## 데이터 저장
 

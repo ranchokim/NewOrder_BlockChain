@@ -65,11 +65,15 @@ class Blockchain:
         return round(balance, COIN.decimals)
 
     def supply(self) -> float:
+        # Coinbase payouts include base reward + collected fees. Fees were already
+        # deducted from senders, so subtract them back out to avoid double-counting.
         minted = 0.0
         for block in self.chain:
             for tx in block.transactions:
                 if tx.sender == "COINBASE":
                     minted += tx.amount
+                else:
+                    minted -= tx.fee
         return round(minted, COIN.decimals)
 
     def validate_transaction(self, tx: Transaction, allow_coinbase: bool = False) -> tuple[bool, str]:
@@ -224,6 +228,10 @@ class Blockchain:
         coinbase_count = sum(1 for tx in block.transactions if tx.sender == "COINBASE")
         if coinbase_count != 1:
             return False, "block must contain exactly one coinbase transaction"
+        coinbase_tx = next(tx for tx in block.transactions if tx.sender == "COINBASE")
+        expected_fees = sum(tx.fee for tx in block.transactions if tx.sender != "COINBASE")
+        if coinbase_tx.amount > COIN.block_reward + expected_fees:
+            return False, "coinbase amount exceeds block reward plus collected fees"
         for tx in block.transactions:
             if tx.sender != "COINBASE":
                 ok, reason = self.validate_transaction(tx)
@@ -248,7 +256,11 @@ class Blockchain:
         if not self.is_valid_chain(blocks):
             return False
         with self.lock:
+            if len(blocks) <= len(self.chain):
+                return False
             self.chain = blocks
+            mined_txids = {tx.txid() for block in blocks for tx in block.transactions}
+            self.mempool = [tx for tx in self.mempool if tx.txid() not in mined_txids]
             self.save()
         return True
 

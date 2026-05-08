@@ -178,7 +178,7 @@ class NewOrderAPI(BaseHTTPRequestHandler):
         if parsed.path.startswith("/ai/payments/"):
             parts = [part for part in parsed.path.split("/") if part]
             if len(parts) == 3 and parts[2] == "verify":
-                self.send_json(HTTPStatus.NOT_FOUND, {"error": "payment id is required"})
+                self.send_json(HTTPStatus.BAD_REQUEST, {"error": "payment id is required"})
                 return
             if len(parts) == 4 and parts[0] == "ai" and parts[1] == "payments":
                 payment_id = parts[2]
